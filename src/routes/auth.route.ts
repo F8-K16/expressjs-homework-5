@@ -1,7 +1,11 @@
 import express from "express";
 import { authController } from "../controllers/auth.controller";
 import { validate } from "../middlewares/validate.middleware";
-import { loginSchema, registerSchema } from "../schemas/auth.schema";
+import {
+  loginSchema,
+  refreshTokenSchema,
+  registerSchema,
+} from "../schemas/auth.schema";
 import { authMiddleware } from "../middlewares/auth.middleware";
 const router = express.Router();
 
@@ -9,6 +13,17 @@ router.post("/register", validate(registerSchema), authController.register);
 router.post("/login", validate(loginSchema), authController.login);
 router.get("/me", authMiddleware, authController.profile);
 router.delete("/logout", authMiddleware, authController.logout);
-router.post("/refresh-token", authController.refreshToken);
+router.post(
+  "/refresh-token",
+  validate(refreshTokenSchema),
+  authController.refreshToken,
+);
+router.get("/me/histories", authMiddleware, authController.loginHistories);
+router.delete("/logout-device", authMiddleware, authController.logoutDevice);
+router.delete(
+  "/logout-devices",
+  authMiddleware,
+  authController.logoutAllDeviceByUser,
+);
 
 export default router;

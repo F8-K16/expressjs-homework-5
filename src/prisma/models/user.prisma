@@ -6,4 +6,6 @@ model User {
     status      Boolean     @default(true)
     createdAt   DateTime?   @default(now()) @db.Timestamp()
     updatedAt   DateTime?   @updatedAt @db.DateTime()
+
+    @@map("users")
 }

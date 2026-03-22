@@ -11,16 +11,10 @@ export const authController = {
   },
   async login(req: Request, res: Response) {
     const { email, password } = req.body;
-    try {
-      const result = await authService.login(email, password);
-      return res.json({
-        data: result,
-      });
-    } catch {
-      return res.status(401).json({
-        message: "Email hoặc mật khẩu không chính xác",
-      });
-    }
+    const data = await authService.login(email, password);
+    return res.json({
+      data,
+    });
   },
   async profile(req: Request, res: Response) {
     return res.json({
@@ -29,24 +23,37 @@ export const authController = {
     });
   },
   async logout(req: Request, res: Response) {
-    const { refresh_token } = req.body;
-    await authService.logout(req.tokenJti!, req.tokenExp!, refresh_token);
+    const { refreshToken } = req.body;
+
+    await authService.logout(req.tokenJti!, req.tokenExp!, refreshToken);
     return res.json({
       message: "Đăng xuất thành công",
     });
   },
+  logoutDevice: async (req: Request, res: Response) => {
+    const { deviceId } = req.body;
+    await authService.logoutDevice(deviceId, req.user!.id);
+    return res.json({
+      message: "Logout device thành công",
+    });
+  },
+  logoutAllDeviceByUser: async (req: Request, res: Response) => {
+    await authService.logoutAllDeviceByUser(req.user!.id);
+    return res.json({});
+  },
   async refreshToken(req: Request, res: Response) {
-    console.log(req.body);
+    const { refreshToken, deviceId } = req.body;
+    const newToken = await authService.refreshToken(refreshToken, deviceId);
 
-    const { refresh_token } = req.body;
-
-    try {
-      const result = await authService.refreshToken(refresh_token);
-      return res.json(result);
-    } catch {
-      return res.status(401).json({
-        message: "Unauthorized",
-      });
-    }
+    return res.json({
+      message: "Refresh token thành công",
+      data: newToken,
+    });
+  },
+  async loginHistories(req: Request, res: Response) {
+    const histories = await authService.getLoginHistories(req.user!.id);
+    return res.json({
+      data: histories,
+    });
   },
 };

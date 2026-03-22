@@ -1,14 +1,15 @@
 import jsonwebtoken, { JwtPayload } from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET as string;
 const JWT_ACCESS_EXPIRED = process.env.JWT_ACCESS_EXPIRED as unknown as number;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET as string;
 const JWT_REFRESH_EXPIRED = process.env
   .JWT_REFRESH_EXPIRED as unknown as number;
 
 export const createAccessToken = (payload: JwtPayload) => {
   return jsonwebtoken.sign(
     { ...payload, jti: crypto.randomUUID() },
-    JWT_SECRET,
+    JWT_ACCESS_SECRET,
     {
       expiresIn: JWT_ACCESS_EXPIRED,
     },
@@ -18,16 +19,29 @@ export const createAccessToken = (payload: JwtPayload) => {
 export const createRefreshToken = (payload: JwtPayload) => {
   return jsonwebtoken.sign(
     { ...payload, jti: crypto.randomUUID() },
-    JWT_SECRET,
+    JWT_REFRESH_SECRET,
     { expiresIn: JWT_REFRESH_EXPIRED },
   );
 };
 
-export const verifyToken = (token: string) => {
+export const verifyAccessToken = (token: string) => {
   try {
-    const decoded = jsonwebtoken.verify(token, JWT_SECRET);
+    const decoded = jsonwebtoken.verify(token, JWT_ACCESS_SECRET);
     return decoded;
   } catch {
     return false;
   }
+};
+
+export const verifyRefreshToken = (token: string) => {
+  try {
+    const decoded = jsonwebtoken.verify(token, JWT_REFRESH_SECRET);
+    return decoded;
+  } catch {
+    return false;
+  }
+};
+
+export const decodeToken = (token: string) => {
+  return jsonwebtoken.decode(token);
 };

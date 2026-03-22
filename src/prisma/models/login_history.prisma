@@ -1,0 +1,11 @@
+model LoginHistory {
+    id          Int         @id @default(autoincrement())
+    userId      Int         
+    ipAddress  String
+    deviceId    String
+    userAgent  String      @db.Text()
+    createdAt   DateTime?   @default(now()) @db.Timestamp()
+    updatedAt   DateTime?   @updatedAt @db.DateTime()
+
+    @@map("login_histories")
+}
