@@ -45,6 +45,11 @@ export { Prisma }
  */
 export type LoginHistory = Prisma.LoginHistoryModel
 /**
+ * Model Otp
+ * 
+ */
+export type Otp = Prisma.OtpModel
+/**
  * Model User
  * 
  */

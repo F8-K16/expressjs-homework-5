@@ -18,6 +18,7 @@ export const userService = {
         password: hashPassword(userData.password),
       },
     });
+
     return user;
   },
   async findByEmail(email: string) {

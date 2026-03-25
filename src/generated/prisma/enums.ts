@@ -9,7 +9,18 @@
 * 🟢 You can import this file directly.
 */
 
+export const OtpType = {
+  EMAIL_VERIFICATION: 'EMAIL_VERIFICATION',
+  PASSWORD_RESET: 'PASSWORD_RESET'
+} as const
+
+export type OtpType = (typeof OtpType)[keyof typeof OtpType]
 
 
-// This file is empty because there are no enums in the schema.
-export {}
+export const UserStatus = {
+  UNVERIFIED: 'UNVERIFIED',
+  VERIFIED: 'VERIFIED',
+  BANNED: 'BANNED'
+} as const
+
+export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus]

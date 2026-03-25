@@ -1,10 +1,12 @@
+import { UserStatus } from "../generated/prisma/enums";
+
 declare module "express" {
   export interface Request {
     user?: {
       id: number;
       name: string;
       email: string;
-      status: boolean;
+      status: UserStatus;
       createdAt: Date | null;
       updatedAt: Date | null;
     };

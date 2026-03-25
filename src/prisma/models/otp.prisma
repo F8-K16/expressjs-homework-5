@@ -1,0 +1,19 @@
+enum OtpType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model Otp {
+  id          Int   @id @default(autoincrement())
+  userId      Int
+  code        String
+  type        OtpType
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @db.Timestamp() @default(now())
+
+  user        User @relation(fields: [userId], references: [id])
+
+  @@index([userId, type])
+  @@map("otps")
+}

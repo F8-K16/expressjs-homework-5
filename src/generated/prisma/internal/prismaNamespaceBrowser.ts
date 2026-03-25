@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   LoginHistory: 'LoginHistory',
+  Otp: 'Otp',
   User: 'User'
 } as const
 
@@ -82,6 +83,19 @@ export const LoginHistoryScalarFieldEnum = {
 } as const
 
 export type LoginHistoryScalarFieldEnum = (typeof LoginHistoryScalarFieldEnum)[keyof typeof LoginHistoryScalarFieldEnum]
+
+
+export const OtpScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  code: 'code',
+  type: 'type',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type OtpScalarFieldEnum = (typeof OtpScalarFieldEnum)[keyof typeof OtpScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {
@@ -120,6 +134,13 @@ export const LoginHistoryOrderByRelevanceFieldEnum = {
 } as const
 
 export type LoginHistoryOrderByRelevanceFieldEnum = (typeof LoginHistoryOrderByRelevanceFieldEnum)[keyof typeof LoginHistoryOrderByRelevanceFieldEnum]
+
+
+export const OtpOrderByRelevanceFieldEnum = {
+  code: 'code'
+} as const
+
+export type OtpOrderByRelevanceFieldEnum = (typeof OtpOrderByRelevanceFieldEnum)[keyof typeof OtpOrderByRelevanceFieldEnum]
 
 
 export const UserOrderByRelevanceFieldEnum = {

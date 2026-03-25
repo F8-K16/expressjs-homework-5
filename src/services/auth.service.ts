@@ -1,6 +1,6 @@
 import { JwtPayload } from "jsonwebtoken";
 import { User } from "../types/user.type";
-import { verifyPassword } from "../utils/hashing";
+import { hashPassword, verifyPassword } from "../utils/hashing";
 import {
   createAccessToken,
   createRefreshToken,
@@ -12,17 +12,104 @@ import { userService } from "./user.service";
 import { redisClient } from "../utils/redis";
 import { HttpException } from "../utils/exception";
 import { prisma } from "../utils/prisma";
+import { otpService } from "./otp.service";
+import { emailQueue } from "../queues/email.queue";
 
 export const authService = {
   async register(userData: User) {
     const user = await userService.create(userData);
+    const code = await otpService.createOtp({
+      userId: user.id,
+      type: "EMAIL_VERIFICATION",
+      ttlMinutes: 15,
+    });
+    await emailQueue.add("send-email-verify", {
+      to: user.email,
+      subject: "Verify your Email",
+      template: "verify-register",
+      options: { code },
+    });
     return user;
+  },
+  async verifyEmail(email: string, code: string) {
+    const result = await otpService.verifyOtp({
+      email,
+      code,
+      type: "EMAIL_VERIFICATION",
+    });
+
+    if (!result)
+      throw new HttpException("Mã OTP không hợp lệ hoặc đã hết hạn", 400);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: result.user.id },
+        data: { status: "VERIFIED" },
+      }),
+      prisma.otp.update({
+        where: { id: result.otp.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+    return {
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        status: "VERIFIED",
+      },
+    };
+  },
+  async resendVerification(email: string) {
+    const user = await userService.findByEmail(email);
+    if (!user) return true;
+    if (user.status === "VERIFIED")
+      throw new HttpException("Email đã được xác thực", 400);
+
+    const key = `resend_verify:${user.id}`;
+    const count = await redisClient.incr(key);
+    if (count === 1) {
+      await redisClient.expire(key, 15 * 60);
+    }
+
+    if (count > 3) {
+      throw new HttpException("Too many requests", 429);
+    }
+
+    await prisma.otp.updateMany({
+      where: {
+        userId: user.id,
+        type: "EMAIL_VERIFICATION",
+        usedAt: null,
+      },
+      data: {
+        usedAt: new Date(),
+      },
+    });
+
+    const code = await otpService.createOtp({
+      userId: user.id,
+      type: "EMAIL_VERIFICATION",
+      ttlMinutes: 15,
+    });
+
+    await emailQueue.add("send-email-verify", {
+      to: user.email,
+      subject: "Verify your Email",
+      template: "verify-register",
+      options: { code },
+    });
+    return true;
   },
   async login(email: string, password: string) {
     const user = await userService.findByEmail(email);
 
     if (!user || !verifyPassword(password, user.password)) {
       throw new HttpException("Email hoặc mật khẩu không chính xác", 401);
+    }
+
+    if (user.status === "UNVERIFIED") {
+      throw new HttpException("Email chưa được xác thực", 403);
     }
 
     const deviceId = Math.random().toString(36).substring(2, 15);
@@ -66,6 +153,34 @@ export const authService = {
 
     return { accessToken, refreshToken, deviceId };
   },
+  async forgotPassword(email: string) {
+    const user = await userService.findByEmail(email);
+    if (!user) return true;
+    const key = `forgot_password:${user.id}`;
+    const count = await redisClient.incr(key);
+
+    if (count === 1) {
+      await redisClient.expire(key, 15 * 60);
+    }
+    if (count > 3) {
+      throw new HttpException("Too many requests", 429);
+    }
+
+    const code = await otpService.createOtp({
+      userId: user.id,
+      type: "PASSWORD_RESET",
+      ttlMinutes: 30,
+    });
+
+    await emailQueue.add("send-email-verify", {
+      to: user.email,
+      subject: "Reset your password",
+      template: "reset-password",
+      options: { code },
+    });
+
+    return true;
+  },
   async profile(token: string) {
     const decoded = verifyAccessToken(token) as JwtPayload & { id: number };
     if (!decoded) {
@@ -79,7 +194,76 @@ export const authService = {
     const user = await userService.findById(decoded.id);
     return { user, decoded };
   },
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const result = await otpService.verifyOtp({
+      email,
+      code,
+      type: "PASSWORD_RESET",
+    });
 
+    if (!result) {
+      throw new HttpException("OTP không hợp lệ hoặc đã hết hạn", 400);
+    }
+
+    const hashedPassword = hashPassword(newPassword);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: result.user.id },
+        data: { password: hashedPassword },
+      }),
+      prisma.otp.update({
+        where: { id: result.otp.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    // Xóa toàn bộ session
+    await this.logoutAllDeviceByUser(result.user.id);
+
+    return true;
+  },
+  async resendResetOtp(email: string) {
+    const user = await userService.findByEmail(email);
+
+    if (!user) return true;
+
+    const key = `resend_reset:${user.id}`;
+    const count = await redisClient.incr(key);
+
+    if (count === 1) {
+      await redisClient.expire(key, 15 * 60);
+    }
+    if (count > 3) {
+      throw new HttpException("Too many requests", 429);
+    }
+
+    await prisma.otp.updateMany({
+      where: {
+        userId: user.id,
+        type: "PASSWORD_RESET",
+        usedAt: null,
+      },
+      data: {
+        usedAt: new Date(),
+      },
+    });
+
+    const code = await otpService.createOtp({
+      userId: user.id,
+      type: "PASSWORD_RESET",
+      ttlMinutes: 30,
+    });
+
+    await emailQueue.add("send-email-verify", {
+      to: user.email,
+      subject: "Reset your password",
+      template: "reset-password",
+      options: { code },
+    });
+
+    return true;
+  },
   async logout(jti: string, exp: number, refreshToken: string) {
     // xóa access token (blacklist)
     redisClient.setEx(

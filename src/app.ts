@@ -1,6 +1,7 @@
 import express from "express";
 import "dotenv/config";
 import indexRoute from "./routes/index.route";
+import "./workers/index.worker";
 import { errorHandlingMiddleware } from "./middlewares/errorHandling.middleware";
 
 const PORT: number = 3000;
